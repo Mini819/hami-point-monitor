@@ -1,27 +1,43 @@
 
 import os
 import re
+import json
 import urllib.request
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 URL = "https://hamipoint.cht.com.tw/store/brand/357"
 STATE_FILE = Path(".monitor_state")
-TOPIC = os.environ.get("NTFY_TOPIC", "")
+
+BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
+
 
 def send_notification(count):
-    if not TOPIC:
-        raise RuntimeError("找不到 NTFY_TOPIC")
+    if not BOT_TOKEN or not CHAT_ID:
+        raise RuntimeError("找不到 Telegram 設定")
 
-    data = f"Hami Point 目前有 {count} 件商品！\n{URL}".encode("utf-8")
-    req = urllib.request.Request(
-        f"https://ntfy.sh/{TOPIC}",
-        data=data,
-        headers={"Title": "Hami Point 商品提醒", "Priority": "high"},
-        method="POST",
+    message = (
+        f"🎉 Hami Point 有新商品了！\n"
+        f"目前商品數量：{count} 件\n"
+        f"快來看看：{URL}"
     )
+
+    data = json.dumps({
+        "chat_id": CHAT_ID,
+        "text": message
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+        data=data,
+        headers={"Content-Type": "application/json"},
+        method="POST"
+    )
+
     with urllib.request.urlopen(req, timeout=20) as response:
-        print("通知結果：", response.status)
+        print("Telegram 通知結果：", response.status)
+
 
 def main():
     with sync_playwright() as p:
@@ -33,6 +49,7 @@ def main():
         browser.close()
 
     match = re.search(r"商品\s*([0-9,]+)", text)
+
     if not match:
         raise RuntimeError("無法讀取商品數量，停止通知")
 
@@ -47,6 +64,7 @@ def main():
         print("沒有新增商品，不通知")
 
     STATE_FILE.write_text(str(count))
+
 
 if __name__ == "__main__":
     main()
