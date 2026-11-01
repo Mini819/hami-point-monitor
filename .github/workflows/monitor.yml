@@ -34,6 +34,15 @@ jobs:
           pip install playwright
           playwright install --with-deps chromium
 
+      - name: 測試 iPhone 推播
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          curl -sS -f \
+            -H "Title: Hami Point Test" \
+            -d "測試成功！Hami Point 商品通知已連接。" \
+            "https://ntfy.sh/${NTFY_TOPIC}"
+
       - name: 執行商品檢查
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
