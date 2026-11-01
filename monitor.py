@@ -45,6 +45,7 @@ def main():
         send_notification(count)
     else:
         print("沒有新增商品，不通知")
+        send_notification(count)
 
     STATE_FILE.write_text(str(count))
 
