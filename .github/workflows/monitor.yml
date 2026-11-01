@@ -1,3 +1,4 @@
+
 name: Hami Point 商品檢查
 
 on:
@@ -11,8 +12,6 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    env:
-      NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
     steps:
       - name: 下載專案
         uses: actions/checkout@v4
@@ -22,5 +21,20 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: 保存上次商品數量
+        uses: actions/cache@v4
+        with:
+          path: .monitor_state
+          key: hami-state-${{ github.run_id }}
+          restore-keys: |
+            hami-state-
+
+      - name: 安裝瀏覽器
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
+
       - name: 執行商品檢查
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
         run: python monitor.py
