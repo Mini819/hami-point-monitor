@@ -1,26 +1,24 @@
 
 import os
-import re
 import json
 import urllib.request
-from pathlib import Path
-from playwright.sync_api import sync_playwright
-
-URL = "https://hamipoint.cht.com.tw/store/brand/357"
-STATE_FILE = Path(".monitor_state")
 
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
+URL = "https://hamipoint.cht.com.tw/store/brand/357"
 
-def send_notification(count):
+def send_notification():
     if not BOT_TOKEN or not CHAT_ID:
         raise RuntimeError("找不到 Telegram 設定")
 
     message = (
-        f"🎉 Hami Point 有新商品了！\n"
-        f"目前商品數量：{count} 件\n"
-        f"快來看看：{URL}"
+        "🎉【Hami Point 新商品通知】\n\n"
+        "發現新商品！\n"
+        "目前商品數量：1 件\n\n"
+        "請立即前往查看：\n"
+        f"{URL}\n\n"
+        "（這是一則模擬新增商品的測試通知）"
     )
 
     data = json.dumps({
@@ -36,35 +34,7 @@ def send_notification(count):
     )
 
     with urllib.request.urlopen(req, timeout=20) as response:
-        print("Telegram 通知結果：", response.status)
-
-
-def main():
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-        page.goto(URL, wait_until="domcontentloaded", timeout=60000)
-        page.wait_for_timeout(10000)
-        text = page.locator("body").inner_text()
-        browser.close()
-
-    match = re.search(r"商品\s*([0-9,]+)", text)
-
-    if not match:
-        raise RuntimeError("無法讀取商品數量，停止通知")
-
-    count = int(match.group(1).replace(",", ""))
-    print("目前商品數量：", count)
-
-    previous = int(STATE_FILE.read_text()) if STATE_FILE.exists() else 0
-
-    if count > previous and count > 0:
-        send_notification(count)
-    else:
-        print("沒有新增商品，不通知")
-
-    STATE_FILE.write_text(str(count))
-
+        print("Hami Point 模擬商品通知成功：", response.status)
 
 if __name__ == "__main__":
-    main()
+    send_notification()
