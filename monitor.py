@@ -1,7 +1,13 @@
 
 import os
+import re
 import json
 import urllib.request
+from pathlib import Path
+from playwright.sync_api import sync_playwright
+
+URL = "https://hamipoint.cht.com.tw/store/brand/357"
+STATE_FILE = Path(".monitor_state")
 
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 
@@ -10,25 +16,23 @@ CHAT_IDS = [
     "8309012509",
 ]
 
-URL = "https://hamipoint.cht.com.tw/store/brand/357"
 
-
-def test_notification():
+def send_notification(count):
     if not BOT_TOKEN:
         raise RuntimeError("找不到 Telegram Bot Token")
 
     message = (
-        "🧪【Hami Point 多人通知測試】\n\n"
-        "這是一則測試訊息！\n"
-        "如果你收到這則通知，代表 Bot 連接成功。\n\n"
-        f"商品頁面：\n{URL}"
+        "🎉【Hami Point 新商品通知】\n\n"
+        f"目前商品數量：{count} 件\n\n"
+        "快來看看：\n"
+        f"{URL}"
     )
 
     for chat_id in CHAT_IDS:
         if not chat_id:
             continue
 
-        print(f"正在發送通知給：{chat_id}")
+        print(f"正在通知：{chat_id}")
 
         data = json.dumps({
             "chat_id": chat_id,
@@ -57,8 +61,50 @@ def test_notification():
             print(f"通知失敗：{chat_id}")
             print(f"錯誤原因：{e}")
 
-    print("測試結束")
+
+def main():
+    if not BOT_TOKEN:
+        raise RuntimeError("找不到 Telegram Bot Token")
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+
+        try:
+            page.goto(
+                URL,
+                wait_until="domcontentloaded",
+                timeout=60000
+            )
+            page.wait_for_timeout(10000)
+            text = page.locator("body").inner_text()
+        finally:
+            browser.close()
+
+    match = re.search(r"商品\s*([0-9,]+)", text)
+
+    if not match:
+        raise RuntimeError("無法讀取商品數量，停止通知")
+
+    count = int(match.group(1).replace(",", ""))
+    print("目前商品數量：", count)
+
+    previous = (
+        int(STATE_FILE.read_text().strip())
+        if STATE_FILE.exists()
+        else 0
+    )
+
+    print("上次商品數量：", previous)
+
+    if count > previous and count > 0:
+        send_notification(count)
+        print("發現新增商品，已通知")
+    else:
+        print("沒有新增商品，不通知")
+
+    STATE_FILE.write_text(str(count))
 
 
 if __name__ == "__main__":
-    test_notification()
+    main()
